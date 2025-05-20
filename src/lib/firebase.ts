@@ -16,8 +16,6 @@ const firebaseConfig = {
 
 // Initialize Firebase only if it hasn't been initialized already
 let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
 
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
@@ -25,7 +23,7 @@ if (!getApps().length) {
   app = getApps()[0]; // Use the existing app if it's already initialized
 }
 
-auth = getAuth(app);
-db = getFirestore(app);
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
 
 export { app, auth, db };
