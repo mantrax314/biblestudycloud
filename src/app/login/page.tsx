@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { signInWithEmailAndPassword, FirebaseError } from 'firebase/auth'; // Import FirebaseError
+// Removed FirebaseError import as it's not directly exported in some SDK versions
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -17,12 +18,14 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/'); // Redirect to dashboard on successful login
     } catch (err: unknown) {
-      if (err instanceof FirebaseError) { // Check if it's a FirebaseError
-        switch (err.code) {
+      // Structural check for Firebase-like errors (object with a string 'code' property)
+      if (typeof err === 'object' && err !== null && 'code' in err && typeof (err as { code: unknown }).code === 'string') {
+        const errorCode = (err as { code: string }).code;
+        switch (errorCode) {
           case 'auth/invalid-email':
             setError('Formato de correo inválido');
             break;
-          case 'auth/invalid-credential': // General credential error
+          case 'auth/invalid-credential':
             setError('Credenciales incorrectas. Por favor, verifica tu correo y contraseña.');
             break;
           case 'auth/user-not-found':
@@ -32,14 +35,14 @@ export default function LoginPage() {
             setError('Contraseña incorrecta. Por favor, inténtalo de nuevo.');
             break;
           default:
-            console.error('Firebase Authentication Error:', err); // Log the actual error for debugging
+            console.error('Firebase Authentication Error:', err); // Log the actual error
             setError('Ocurrió un error de autenticación. Por favor, inténtalo de nuevo.');
         }
-      } else if (err instanceof Error) {
-        console.error('Generic Error:', err); // Log the actual error for debugging
-        setError(err.message); // For generic errors
-      } else {
-        console.error('Unknown Error:', err); // Log the actual error for debugging
+      } else if (err instanceof Error) { // For generic errors that are instances of Error
+        console.error('Generic Error:', err);
+        setError(err.message);
+      } else { // For other unknown error types
+        console.error('Unknown Error:', err);
         setError('Ocurrió un error inesperado. Por favor, inténtalo de nuevo.');
       }
     }
