@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; // Import Link for navigation
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase'; // Assuming your firebase.ts exports auth
 
@@ -20,6 +21,10 @@ export default function Home() {
   return (
     <div>
       <h1>Hello World!</h1>
+      {/* Add Logout Link */}
+      <Link href="/logout">
+        Logout
+      </Link>
     </div>
   );
 }
