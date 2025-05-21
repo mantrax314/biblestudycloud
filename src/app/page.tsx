@@ -36,13 +36,11 @@ const normalizeText = (text: string): string => {
   return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 };
 
-// Updated to format for browser's local timezone and match modal style
 const formatTimestampForModal = (isoString: string): string => {
   if (!isoString) return '';
   try {
     const date = new Date(isoString);
-    // Example: May 21 '25 14:00 (adjust options for exact desired format)
-    return date.toLocaleDateString(undefined, { // undefined uses browser default locale
+    return date.toLocaleDateString(undefined, {
       month: 'short',
       day: '2-digit',
       year: '2-digit',
@@ -65,7 +63,7 @@ const formatTimestampForList = (isoString: string): string => {
       hour: '2-digit', minute: '2-digit', hour12: false,
     }).replace(',', '');
   } catch (e) {
-    console.error('Error formatting date for list:', e); // Use the error variable 'e'
+    console.error('Error formatting date for list:', e);
     return 'Invalid date';
   }
 };
@@ -87,14 +85,12 @@ export default function Home() {
   const [isLoadingReadStatus, setIsLoadingReadStatus] = useState(true);
   const [authCheckCompleted, setAuthCheckCompleted] = useState(false);
 
-  // States for Chapter Detail Modal
   const [isChapterDetailModalOpen, setIsChapterDetailModalOpen] = useState(false);
   const [selectedChapterForModal, setSelectedChapterForModal] = useState<Chapter | null>(null);
   const [detailedChapterData, setDetailedChapterData] = useState<ReadChapterData | null>(null);
   const [currentNotes, setCurrentNotes] = useState('');
   const [isLoadingChapterDetails, setIsLoadingChapterDetails] = useState(false);
   const [showUnreadConfirm, setShowUnreadConfirm] = useState(false);
-
 
   const loadReadChapters = async (userId: string) => {
     setIsLoadingReadStatus(true);
@@ -195,7 +191,7 @@ export default function Home() {
     setSelectedChapterForModal(chapter);
     setIsChapterDetailModalOpen(true);
     setIsLoadingChapterDetails(true);
-    setShowUnreadConfirm(false); // Reset confirmation state
+    setShowUnreadConfirm(false);
     const docRef = doc(db, "users", currentUser.uid, "readChapters", chapter.id);
     try {
       const docSnap = await getDoc(docRef);
@@ -203,13 +199,12 @@ export default function Home() {
         setDetailedChapterData(docSnap.data() as ReadChapterData);
         setCurrentNotes(docSnap.data().notes || '');
       } else {
-        // Chapter not marked as read yet, prepare a default structure
         setDetailedChapterData({ ...chapter, latestReadTimestamp: '', allTimestamps: [], notes: '' });
         setCurrentNotes('');
       }
     } catch (error) {
       console.error("Error fetching chapter details:", error);
-      setDetailedChapterData({ ...chapter, latestReadTimestamp: '', allTimestamps: [], notes: '' }); // Basic fallback
+      setDetailedChapterData({ ...chapter, latestReadTimestamp: '', allTimestamps: [], notes: '' });
       setCurrentNotes('');
     }
     setIsLoadingChapterDetails(false);
@@ -219,7 +214,6 @@ export default function Home() {
     if (!currentUser || !selectedChapterForModal || !detailedChapterData) return;
     const docRef = doc(db, "users", currentUser.uid, "readChapters", selectedChapterForModal.id);
     try {
-      // If chapter wasn't read before, mark it read first then add notes
       if (!detailedChapterData.allTimestamps || detailedChapterData.allTimestamps.length === 0) {
         const nowISO = new Date().toISOString();
         const newReadEntry: ReadChapterData = {
@@ -231,7 +225,7 @@ export default function Home() {
           notes: currentNotes
         };
         await setDoc(docRef, newReadEntry);
-        setDetailedChapterData(newReadEntry); // Update local detailed data
+        setDetailedChapterData(newReadEntry);
         setReadStatus(prev => ({ ...prev, [selectedChapterForModal.id]: { latestReadTimestamp: nowISO, firestoreDocId: selectedChapterForModal.id } }));
       } else {
         await updateDoc(docRef, { notes: currentNotes });
@@ -243,7 +237,7 @@ export default function Home() {
 
   const handleMarkUnread = async () => {
     if (!currentUser || !selectedChapterForModal) return;
-    setShowUnreadConfirm(true); // Show confirmation step
+    setShowUnreadConfirm(true);
   };
 
   const confirmMarkUnread = async () => {
@@ -277,7 +271,6 @@ export default function Home() {
   const inputStyle = "appearance-none border-b-2 border-[#d3b596] w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none bg-transparent placeholder-gray-600 text-lg";
   const modalButtonStyle = "w-full bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2.5 px-4 rounded focus:outline-none focus:shadow-outline text-center";
 
-
   if (!authCheckCompleted) return <FullPageLoader message="Verificando sesión..." />;
   if (!currentUser && authCheckCompleted) return <FullPageLoader message="Redirigiendo a inicio de sesión..." />;
   if (isLoadingReadStatus) return <FullPageLoader message="Cargando datos..." />;
@@ -303,20 +296,22 @@ export default function Home() {
               const timestamp = readStatus[chapter.id]?.latestReadTimestamp;
               return (
                 <li key={chapter.id} className="flex items-center justify-between py-2 px-2 md:px-3 border-b border-gray-300/50">
-                  <div className="flex items-center flex-grow min-w-0">
+                  {/* Make the entire div clickable for opening the detail modal */}
+                  <div onClick={() => handleChapterItemClick(chapter)} className="flex items-center flex-grow min-w-0 cursor-pointer hover:bg-black/10 rounded px-1 py-0.5">
                     <button 
-                      onClick={() => handleMarkAsRead(chapter)} 
+                      onClick={(e) => { e.stopPropagation(); handleMarkAsRead(chapter);}} // Stop propagation to prevent modal open
                       className={`mr-2 md:mr-3 w-5 h-5 md:w-6 md:h-6 border-2 rounded flex-shrink-0 flex items-center justify-center focus:outline-none transition-colors ${isRead ? 'bg-[#8B4513]/70 border-[#654321]' : 'bg-transparent border-gray-400 hover:border-gray-500'}`}
                       aria-label={isRead ? `Marcar ${chapter.section} ${chapter.chapter} como leído nuevamente` : `Marcar ${chapter.section} ${chapter.chapter} como leído`}
                     >
                       {isRead && <span className="text-white text-xs md:text-sm">✓</span>}
                     </button>
-                    <span onClick={() => handleChapterItemClick(chapter)} className="text-sm md:text-base text-gray-800 cursor-pointer hover:text-[#654321] truncate">
+                    {/* Removed onClick from here, moved to parent div */}
+                    <span className="text-sm md:text-base text-gray-800 truncate">
                       {chapter.section} {chapter.chapter}
                     </span>
                   </div>
                   {isRead && timestamp && (
-                    <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                    <span onClick={() => handleChapterItemClick(chapter)} className="text-xs text-gray-500 ml-2 whitespace-nowrap cursor-pointer hover:text-[#654321]">
                       ({formatTimestampForList(timestamp)})
                     </span>
                   )}
@@ -353,7 +348,8 @@ export default function Home() {
       {/* Chapter Detail Modal */}
       {isChapterDetailModalOpen && selectedChapterForModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={closeChapterDetailModal}>
-          <div className="bg-gradient-to-br from-[#fdfbf7] to-[#f3e9db] p-5 rounded-lg shadow-2xl w-full max-w-md mx-auto flex flex-col space-y-4" 
+          {/* Changed background gradient to match menu modal */}
+          <div className="bg-gradient-to-br from-[#f5e9d8] to-[#e0d0b8] p-5 rounded-lg shadow-2xl w-full max-w-md mx-auto flex flex-col space-y-4" 
                style={{maxHeight: '90vh'}} onClick={(e) => e.stopPropagation()}>
             <h2 className="text-2xl font-bold text-center text-[#5a4132]" style={{fontFamily: 'serif'}}>
               {selectedChapterForModal.section} {selectedChapterForModal.chapter}
