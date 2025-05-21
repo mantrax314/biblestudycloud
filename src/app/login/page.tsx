@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, FirebaseError } from 'firebase/auth'; // Import FirebaseError
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -17,12 +17,28 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/'); // Redirect to dashboard on successful login
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
-        setError((err as { message: string }).message);
+      if (err instanceof FirebaseError) { // Check if it's a FirebaseError
+        switch (err.code) {
+          case 'auth/invalid-email':
+            setError('Formato de correo inválido');
+            break;
+          case 'auth/invalid-credential': // This code is often used for wrong password or email not found
+            setError('Credenciales incorrectas');
+            break;
+          // It's good practice to handle other Firebase auth errors you anticipate
+          case 'auth/user-not-found':
+            setError('Usuario no encontrado.');
+            break;
+          case 'auth/wrong-password':
+            setError('Contraseña incorrecta.');
+            break;
+          default:
+            setError('Ocurrió un error de autenticación. Por favor, inténtalo de nuevo.');
+        }
+      } else if (err instanceof Error) {
+        setError(err.message); // For generic errors
       } else {
-        setError('An unexpected error occurred.');
+        setError('Ocurrió un error inesperado. Por favor, inténtalo de nuevo.');
       }
     }
   };
