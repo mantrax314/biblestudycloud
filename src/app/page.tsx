@@ -17,9 +17,8 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
   const [allChapters, setAllChapters] = useState<Chapter[]>([]);
   const [filteredChapters, setFilteredChapters] = useState<Chapter[]>([]);
-  const [isMenuModalOpen, setIsMenuModalOpen] = useState(false); // State for modal
+  const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
 
-  // Authentication check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -29,7 +28,6 @@ export default function Home() {
     return () => unsubscribe();
   }, [router]);
 
-  // Fetch Bible chapters
   useEffect(() => {
     fetch('/bible_chapters.json')
       .then((res) => res.json())
@@ -40,7 +38,6 @@ export default function Home() {
       .catch(console.error);
   }, []);
 
-  // Filter chapters based on search term
   useEffect(() => {
     if (!searchTerm) {
       setFilteredChapters(allChapters);
@@ -73,33 +70,38 @@ export default function Home() {
     setIsMenuModalOpen(false);
   };
 
+  // Common styles for buttons and inputs to match login page
+  const buttonStyle = "bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm md:text-base";
+  const inputStyle = "appearance-none border-b-2 border-[#d3b596] w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none bg-transparent placeholder-gray-600 text-lg";
+
   return (
-    <div className={`flex min-h-screen flex-col items-center justify-start pt-8 px-4 md:pt-12 ${isMenuModalOpen ? 'overflow-hidden' : ''}`} style={{ background: 'linear-gradient(180deg, #f5e9d8 0%, #e0d0b8 100%)' }}>
-      {/* Header Section - Title Removed, Menu button moved to top right */}
-      <div className="w-full max-w-3xl flex justify-end items-center mb-8">
-        {/* Bible Study Cloud Title Removed */}
+    <div className={`flex min-h-screen flex-col items-center justify-start ${isMenuModalOpen ? 'overflow-hidden' : ''} pt-6 pb-32 md:pt-12 md:pb-6 px-4`}
+         style={{ background: 'linear-gradient(180deg, #f5e9d8 0%, #e0d0b8 100%)' }}>
+      
+      {/* Desktop: Menu Button (Top Right) */}
+      <div className="w-full max-w-xl mx-auto hidden md:flex justify-end items-center mb-6">
         <button
           onClick={handleMenuClick}
-          className="bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm md:text-base"
+          className={buttonStyle}
           style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)' }}
         >
           Menu
         </button>
       </div>
 
-      {/* Search Input Section */}
-      <div className="w-full max-w-xl mb-8 relative flex items-center">
+      {/* Desktop: Search Input Section (Below Menu Button) */}
+      <div className="w-full max-w-xl mx-auto hidden md:block mb-6 relative items-center">
         <input
           type="text"
           placeholder="Búsqueda"
           value={searchTerm}
           onChange={handleSearchChange}
-          className="appearance-none border-b-2 border-[#d3b596] w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none bg-transparent placeholder-gray-600 text-lg"
+          className={inputStyle}
         />
         {searchTerm && (
           <button
             onClick={clearSearch}
-            className="absolute right-0 mr-3 text-gray-600 hover:text-gray-800 text-2xl"
+            className="absolute top-0 bottom-0 right-0 mr-3 text-gray-600 hover:text-gray-800 text-2xl flex items-center"
             aria-label="Clear search"
           >
             &times;
@@ -107,8 +109,8 @@ export default function Home() {
         )}
       </div>
 
-      {/* Chapters List Section */}
-      <div className="w-full max-w-xl bg-white/30 backdrop-blur-sm p-4 rounded-lg shadow-md overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' /* Adjusted max height */ }}>
+      {/* Chapters List Section (Main Content Area) */}
+      <div className="w-full max-w-xl mx-auto bg-white/30 backdrop-blur-sm p-4 rounded-lg shadow-md overflow-y-auto flex-grow">
         {filteredChapters.length > 0 ? (
           <ul>
             {filteredChapters.map((chapter) => (
@@ -122,21 +124,43 @@ export default function Home() {
         )}
       </div>
 
-      {/* Alternative Logout Link Removed */}
-      {/* <div className="mt-auto pt-8 pb-8">
-        <Link href="/logout" className="text-[#5a4132] hover:underline">
-          Logout (alternative)
-        </Link>
-      </div> */}
+      {/* Mobile: Fixed Bottom Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 p-3 space-y-3 shadow-top-md" style={{backgroundColor: '#e0d0b8'}}>
+        <div className="relative flex items-center">
+            <input
+              type="text"
+              placeholder="Búsqueda"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className={`${inputStyle} py-2 text-base`}
+            />
+            {searchTerm && (
+              <button
+                onClick={clearSearch}
+                className="absolute top-0 bottom-0 right-0 mr-3 text-gray-600 hover:text-gray-800 text-xl flex items-center"
+                aria-label="Clear search"
+              >
+                &times;
+              </button>
+            )}
+        </div>
+        <button
+          onClick={handleMenuClick}
+          className={`${buttonStyle} w-full py-2.5 text-base`}
+          style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)' }}
+        >
+          Menu
+        </button>
+      </div>
 
-      {/* Menu Modal */}
+      {/* Menu Modal (Remains the same) */}
       {isMenuModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-[#f5e9d8] to-[#e0d0b8] p-6 rounded-lg shadow-2xl w-full max-w-xs mx-auto">
             <div className="flex flex-col space-y-3">
               <Link
                 href="/logout"
-                onClick={closeMenuModal} // Close modal on click
+                onClick={closeMenuModal}
                 className="w-full bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline text-center"
                 style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)' }}
               >
