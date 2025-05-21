@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged, User } from 'firebase/auth'; // Import User type
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { auth, db } from '../lib/firebase'; // Import db
 // Firestore imports will be added in the next phase
 
@@ -14,6 +15,7 @@ interface Chapter {
 }
 
 // Interface for the structure of read chapter data (matches Firestore)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface ReadChapterData {
   id: string; // chapter.id
   section: string;
@@ -102,6 +104,14 @@ export default function Home() {
       );
     }
   }, [searchTerm, allChapters]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+  };
 
   const handleMarkAsRead = async (chapter: Chapter) => {
     if (!currentUser) return;
