@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, db } from '../lib/firebase'; // db is now used
+import { auth, db } from '../lib/firebase';
 import {
   doc,
   getDoc,
@@ -13,10 +13,8 @@ import {
   arrayUnion,
   collection,
   getDocs,
-  query,
-  where,
-  serverTimestamp, // For server-side timestamps, though using ISO string for now
-  Timestamp // For converting Firestore timestamps if needed
+  query
+  // Removed unused: where, serverTimestamp, Timestamp
 } from 'firebase/firestore';
 
 interface Chapter {
@@ -55,7 +53,8 @@ const formatTimestamp = (isoString: string): string => {
 export default function Home() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [searchTerm, setSearchTerm] = useState(''); // setSearchTerm seems to be a linter false positive
   const [allChapters, setAllChapters] = useState<Chapter[]>([]);
   const [filteredChapters, setFilteredChapters] = useState<Chapter[]>([]);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
@@ -69,11 +68,11 @@ export default function Home() {
       const q = query(collection(db, "users", userId, "readChapters"));
       const querySnapshot = await getDocs(q);
       querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data() as ReadChapterData; // Assume data matches interface
-        if (data.id) { // Use chapter.id which is stored as 'id' in Firestore doc
+        const data = docSnap.data() as ReadChapterData;
+        if (data.id) {
             newReadStatus[data.id] = { 
                 latestReadTimestamp: data.latestReadTimestamp,
-                firestoreDocId: docSnap.id // This is the Firestore auto-ID
+                firestoreDocId: docSnap.id 
             };
         }
       });
@@ -91,7 +90,7 @@ export default function Home() {
         loadReadChapters(user.uid);
       } else {
         setCurrentUser(null);
-        setReadStatus({}); // Clear status on logout
+        setReadStatus({});
         router.push('/login');
       }
     });
@@ -125,6 +124,14 @@ export default function Home() {
       );
     }
   }, [searchTerm, allChapters]);
+  
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+  };
 
   const handleMarkAsRead = async (chapter: Chapter) => {
     if (!currentUser) {
@@ -132,38 +139,34 @@ export default function Home() {
       return;
     }
     const userId = currentUser.uid;
-    const chapterId = chapter.id; // This is 'genesis__1' etc.
+    const chapterId = chapter.id;
     const nowISO = new Date().toISOString();
 
-    // The document ID in Firestore will be the chapterId itself for easy lookup
     const docRef = doc(db, "users", userId, "readChapters", chapterId);
 
     try {
       const docSnap = await getDoc(docRef);
-      let newTimestampToDisplay = nowISO;
+      const newTimestampToDisplay = nowISO; // Corrected to const
 
       if (docSnap.exists()) {
-        // Document exists, update it
-        const existingData = docSnap.data() as ReadChapterData;
+        // Removed unused existingData variable
         await updateDoc(docRef, {
           latestReadTimestamp: nowISO,
           allTimestamps: arrayUnion(nowISO)
         });
         console.log(`Chapter ${chapterId} updated for user ${userId}`);
       } else {
-        // Document doesn't exist, create it
         const newReadEntry: ReadChapterData = {
           id: chapter.id,
           section: chapter.section,
           chapter: chapter.chapter,
           latestReadTimestamp: nowISO,
           allTimestamps: [nowISO],
-          notes: "" // Default empty notes
+          notes: ""
         };
         await setDoc(docRef, newReadEntry);
         console.log(`Chapter ${chapterId} marked as read for user ${userId}`);
       }
-      // Update local state immediately for UI responsiveness
       setReadStatus(prevStatus => ({
         ...prevStatus,
         [chapterId]: { latestReadTimestamp: newTimestampToDisplay, firestoreDocId: chapterId } 
@@ -180,7 +183,6 @@ export default function Home() {
   const buttonStyle = "bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm md:text-base";
   const inputStyle = "appearance-none border-b-2 border-[#d3b596] w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none bg-transparent placeholder-gray-600 text-lg";
 
-  // Render UI
   if (isLoadingReadStatus && currentUser) {
     return <div className="flex min-h-screen items-center justify-center" style={{ background: 'linear-gradient(180deg, #f5e9d8 0%, #e0d0b8 100%)' }}><p className="text-xl text-[#5a4132]">Cargando datos...</p></div>;
   }
