@@ -65,6 +65,7 @@ const formatTimestampForList = (isoString: string): string => {
       hour: '2-digit', minute: '2-digit', hour12: false,
     }).replace(',', '');
   } catch (e) {
+    console.error('Error formatting date for list:', e); // Use the error variable 'e'
     return 'Invalid date';
   }
 };
