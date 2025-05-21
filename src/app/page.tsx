@@ -12,6 +12,14 @@ interface Chapter {
   chapter: string;
 }
 
+// Helper function to normalize text (lowercase and remove accents)
+const normalizeText = (text: string): string => {
+  return text
+    .toLowerCase()
+    .normalize('NFD') // Decompose combined graphemes into base characters and diacritical marks
+    .replace(/[\u0300-\u036f]/g, ''); // Remove diacritical marks
+};
+
 export default function Home() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,18 +46,24 @@ export default function Home() {
       .catch(console.error);
   }, []);
 
+  // Filter chapters based on search term (accent-insensitive)
   useEffect(() => {
     if (!searchTerm) {
       setFilteredChapters(allChapters);
     } else {
-      const lowerSearchTerm = searchTerm.toLowerCase();
+      const normalizedSearchTerm = normalizeText(searchTerm);
       setFilteredChapters(
-        allChapters.filter(
-          (chapter) =>
-            chapter.section.toLowerCase().includes(lowerSearchTerm) ||
-            chapter.chapter.toLowerCase().includes(lowerSearchTerm) ||
-            `${chapter.section.toLowerCase()} ${chapter.chapter.toLowerCase()}`.includes(lowerSearchTerm)
-        )
+        allChapters.filter((chapter) => {
+          const normalizedSection = normalizeText(chapter.section);
+          const normalizedChapterNum = normalizeText(chapter.chapter); // Chapter numbers usually don't have accents, but good for consistency
+          const normalizedCombined = `${normalizedSection} ${normalizedChapterNum}`;
+
+          return (
+            normalizedSection.includes(normalizedSearchTerm) ||
+            normalizedChapterNum.includes(normalizedSearchTerm) ||
+            normalizedCombined.includes(normalizedSearchTerm)
+          );
+        })
       );
     }
   }, [searchTerm, allChapters]);
@@ -70,7 +84,6 @@ export default function Home() {
     setIsMenuModalOpen(false);
   };
 
-  // Common styles for buttons and inputs to match login page
   const buttonStyle = "bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm md:text-base";
   const inputStyle = "appearance-none border-b-2 border-[#d3b596] w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none bg-transparent placeholder-gray-600 text-lg";
 
