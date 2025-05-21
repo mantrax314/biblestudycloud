@@ -75,11 +75,9 @@ export default function Home() {
 
   return (
     <div className={`flex min-h-screen flex-col items-center justify-start pt-8 px-4 md:pt-12 ${isMenuModalOpen ? 'overflow-hidden' : ''}`} style={{ background: 'linear-gradient(180deg, #f5e9d8 0%, #e0d0b8 100%)' }}>
-      {/* Header Section */}
-      <div className="w-full max-w-3xl flex justify-between items-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold" style={{ fontFamily: 'serif', color: '#5a4132' }}>
-          Bible Study Cloud
-        </h1>
+      {/* Header Section - Title Removed, Menu button moved to top right */}
+      <div className="w-full max-w-3xl flex justify-end items-center mb-8">
+        {/* Bible Study Cloud Title Removed */}
         <button
           onClick={handleMenuClick}
           className="bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm md:text-base"
@@ -110,7 +108,7 @@ export default function Home() {
       </div>
 
       {/* Chapters List Section */}
-      <div className="w-full max-w-xl bg-white/30 backdrop-blur-sm p-4 rounded-lg shadow-md overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' /* Adjust based on header/footer height */ }}>
+      <div className="w-full max-w-xl bg-white/30 backdrop-blur-sm p-4 rounded-lg shadow-md overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' /* Adjusted max height */ }}>
         {filteredChapters.length > 0 ? (
           <ul>
             {filteredChapters.map((chapter) => (
@@ -124,13 +122,12 @@ export default function Home() {
         )}
       </div>
 
-      {/* Logout Link - now part of the main layout, not menu modal logic explicitly here */}
-      <div className="mt-auto pt-8 pb-8">
-        {/* The main logout is in the menu modal now, this one could be removed or kept as an alternative */}
+      {/* Alternative Logout Link Removed */}
+      {/* <div className="mt-auto pt-8 pb-8">
         <Link href="/logout" className="text-[#5a4132] hover:underline">
           Logout (alternative)
         </Link>
-      </div>
+      </div> */}
 
       {/* Menu Modal */}
       {isMenuModalOpen && (
