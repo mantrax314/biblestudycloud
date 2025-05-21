@@ -3,10 +3,21 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { onAuthStateChanged, User } from 'firebase/auth'; // Import User type
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { auth, db } from '../lib/firebase'; // Import db
-// Firestore imports will be added in the next phase
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth, db } from '../lib/firebase'; // db is now used
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
+  collection,
+  getDocs,
+  query,
+  where,
+  serverTimestamp, // For server-side timestamps, though using ISO string for now
+  Timestamp // For converting Firestore timestamps if needed
+} from 'firebase/firestore';
 
 interface Chapter {
   id: string;
@@ -14,38 +25,27 @@ interface Chapter {
   chapter: string;
 }
 
-// Interface for the structure of read chapter data (matches Firestore)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface ReadChapterData {
-  id: string; // chapter.id
+  id: string; 
   section: string;
   chapter: string;
-  latestReadTimestamp: string; // ISO string
-  allTimestamps: string[];     // Array of ISO strings
-  notes?: string; // Optional notes
+  latestReadTimestamp: string; 
+  allTimestamps: string[];
+  notes?: string;
 }
 
-// Helper function to normalize text (lowercase and remove accents)
 const normalizeText = (text: string): string => {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 };
 
-// Helper function to format timestamp (e.g., May 01 25 14:00)
 const formatTimestamp = (isoString: string): string => {
   if (!isoString) return '';
   try {
     const date = new Date(isoString);
-    return date.toLocaleDateString('en-US', { // Using en-US for "May 01 25" style as per image, adjust if locale is different
-      month: 'short',
-      day: '2-digit',
-      year: '2-digit', // Assuming 2-digit year is acceptable as per image
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false, // Assuming 24-hour format
-    }).replace(',', ''); // Remove comma often inserted by toLocaleDateString
+    return date.toLocaleDateString('en-US', {
+      month: 'short', day: '2-digit', year: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).replace(',', '');
   } catch (e) {
     console.error('Error formatting date:', e);
     return 'Invalid date';
@@ -59,16 +59,39 @@ export default function Home() {
   const [allChapters, setAllChapters] = useState<Chapter[]>([]);
   const [filteredChapters, setFilteredChapters] = useState<Chapter[]>([]);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
-  // State to store read status: chapterId -> { latestReadTimestamp: string, firestoreDocId?: string }
-  const [readStatus, setReadStatus] = useState<Record<string, { latestReadTimestamp: string; firestoreDocId?: string }>>({});
+  const [readStatus, setReadStatus] = useState<Record<string, { latestReadTimestamp: string; firestoreDocId: string }>>({});
+  const [isLoadingReadStatus, setIsLoadingReadStatus] = useState(true);
+
+  const loadReadChapters = async (userId: string) => {
+    setIsLoadingReadStatus(true);
+    const newReadStatus: Record<string, { latestReadTimestamp: string; firestoreDocId: string }> = {};
+    try {
+      const q = query(collection(db, "users", userId, "readChapters"));
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data() as ReadChapterData; // Assume data matches interface
+        if (data.id) { // Use chapter.id which is stored as 'id' in Firestore doc
+            newReadStatus[data.id] = { 
+                latestReadTimestamp: data.latestReadTimestamp,
+                firestoreDocId: docSnap.id // This is the Firestore auto-ID
+            };
+        }
+      });
+      setReadStatus(newReadStatus);
+    } catch (error) {
+      console.error("Error loading read chapters: ", error);
+    }
+    setIsLoadingReadStatus(false);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setCurrentUser(user);
-        // In next phase, we'll fetch read status from Firestore here
+        loadReadChapters(user.uid);
       } else {
         setCurrentUser(null);
+        setReadStatus({}); // Clear status on logout
         router.push('/login');
       }
     });
@@ -77,12 +100,10 @@ export default function Home() {
 
   useEffect(() => {
     fetch('/bible_chapters.json')
-      .then((res) => res.json())
-      .then((data) => {
+      .then((res) => res.json()).then((data) => {
         setAllChapters(data);
         setFilteredChapters(data);
-      })
-      .catch(console.error);
+      }).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -105,39 +126,64 @@ export default function Home() {
     }
   }, [searchTerm, allChapters]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  };
-
-  const clearSearch = () => {
-    setSearchTerm('');
-  };
-
   const handleMarkAsRead = async (chapter: Chapter) => {
-    if (!currentUser) return;
-    const now = new Date().toISOString();
-    const chapterId = chapter.id;
+    if (!currentUser) {
+      alert("Debes iniciar sesión para marcar capítulos.");
+      return;
+    }
+    const userId = currentUser.uid;
+    const chapterId = chapter.id; // This is 'genesis__1' etc.
+    const nowISO = new Date().toISOString();
 
-    console.log(`Attempting to mark chapter ${chapterId} as read for user ${currentUser.uid}`);
-    // --- Firestore logic will go here in the next phase ---
-    // For now, just update local state to give UI feedback
-    setReadStatus(prevStatus => ({
-      ...prevStatus,
-      [chapterId]: { latestReadTimestamp: now }
-    }));
-    alert(`Marcado ${chapter.section} ${chapter.chapter} como leído (localmente).
-Timestamp: ${now}`);
-    // In the next phase, we will:
-    // 1. Check if a document for this chapterId already exists for the user.
-    // 2. If yes, update its latestReadTimestamp and add to allTimestamps.
-    // 3. If no, create a new document with the ReadChapterData structure.
+    // The document ID in Firestore will be the chapterId itself for easy lookup
+    const docRef = doc(db, "users", userId, "readChapters", chapterId);
+
+    try {
+      const docSnap = await getDoc(docRef);
+      let newTimestampToDisplay = nowISO;
+
+      if (docSnap.exists()) {
+        // Document exists, update it
+        const existingData = docSnap.data() as ReadChapterData;
+        await updateDoc(docRef, {
+          latestReadTimestamp: nowISO,
+          allTimestamps: arrayUnion(nowISO)
+        });
+        console.log(`Chapter ${chapterId} updated for user ${userId}`);
+      } else {
+        // Document doesn't exist, create it
+        const newReadEntry: ReadChapterData = {
+          id: chapter.id,
+          section: chapter.section,
+          chapter: chapter.chapter,
+          latestReadTimestamp: nowISO,
+          allTimestamps: [nowISO],
+          notes: "" // Default empty notes
+        };
+        await setDoc(docRef, newReadEntry);
+        console.log(`Chapter ${chapterId} marked as read for user ${userId}`);
+      }
+      // Update local state immediately for UI responsiveness
+      setReadStatus(prevStatus => ({
+        ...prevStatus,
+        [chapterId]: { latestReadTimestamp: newTimestampToDisplay, firestoreDocId: chapterId } 
+      }));
+    } catch (error) {
+      console.error("Error updating read status: ", error);
+      alert("Error al guardar el estado de lectura. Inténtalo de nuevo.");
+    }
   };
-
+  
   const handleMenuClick = () => setIsMenuModalOpen(true);
   const closeMenuModal = () => setIsMenuModalOpen(false);
 
   const buttonStyle = "bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm md:text-base";
   const inputStyle = "appearance-none border-b-2 border-[#d3b596] w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none bg-transparent placeholder-gray-600 text-lg";
+
+  // Render UI
+  if (isLoadingReadStatus && currentUser) {
+    return <div className="flex min-h-screen items-center justify-center" style={{ background: 'linear-gradient(180deg, #f5e9d8 0%, #e0d0b8 100%)' }}><p className="text-xl text-[#5a4132]">Cargando datos...</p></div>;
+  }
 
   return (
     <div className={`flex min-h-screen flex-col items-center ${isMenuModalOpen ? 'overflow-hidden' : ''} pt-6 pb-36 md:pt-12 md:pb-6 px-4`}
@@ -166,7 +212,7 @@ Timestamp: ${now}`);
                     <button 
                       onClick={() => handleMarkAsRead(chapter)} 
                       className={`mr-3 w-6 h-6 border-2 rounded flex items-center justify-center focus:outline-none transition-colors ${isRead ? 'bg-[#8B4513]/70 border-[#654321]' : 'bg-transparent border-gray-400 hover:border-gray-500'}`}
-                      aria-label={isRead ? `Marcar ${chapter.section} ${chapter.chapter} como no leído` : `Marcar ${chapter.section} ${chapter.chapter} como leído`}
+                      aria-label={isRead ? `Desmarcar ${chapter.section} ${chapter.chapter}` : `Marcar ${chapter.section} ${chapter.chapter} como leído`}
                     >
                       {isRead && <span className="text-white text-sm">✓</span>}
                     </button>
