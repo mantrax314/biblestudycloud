@@ -10,7 +10,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  arrayUnion,
+  // arrayUnion, // We will manually prepend to the array
   collection,
   getDocs,
   query
@@ -85,7 +85,6 @@ export default function Home() {
       setReadStatus(newReadStatus);
     } catch (error) {
       console.error("Error loading read chapters: ", error);
-      // Optionally set an error state here to inform the user
     }
     setIsLoadingReadStatus(false);
   };
@@ -94,14 +93,14 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setCurrentUser(user);
-        loadReadChapters(user.uid); // loadReadChapters sets setIsLoadingReadStatus(false) internally
+        loadReadChapters(user.uid);
       } else {
         setCurrentUser(null);
         setReadStatus({});
-        setIsLoadingReadStatus(true); // Reset loading state for read chapters on logout
+        setIsLoadingReadStatus(true);
         router.push('/login');
       }
-      setAuthCheckCompleted(true); // Crucially, set this after user state is confirmed and actions initiated
+      setAuthCheckCompleted(true);
     });
     return () => unsubscribe();
   }, [router]);
@@ -158,11 +157,13 @@ export default function Home() {
       const newTimestampToDisplay = nowISO;
 
       if (docSnap.exists()) {
+        const existingData = docSnap.data() as ReadChapterData;
+        const updatedTimestamps = [nowISO, ...(existingData.allTimestamps || [])];
         await updateDoc(docRef, {
           latestReadTimestamp: nowISO,
-          allTimestamps: arrayUnion(nowISO)
+          allTimestamps: updatedTimestamps
         });
-        console.log(`Chapter ${chapterId} updated for user ${userId}`);
+        console.log(`Chapter ${chapterId} updated (re-read) for user ${userId}`);
       } else {
         const newReadEntry: ReadChapterData = {
           id: chapter.id,
@@ -194,12 +195,9 @@ export default function Home() {
   if (!authCheckCompleted) {
     return <FullPageLoader message="Verificando sesión..." />;
   }
-  if (!currentUser && authCheckCompleted) { // Explicitly check authCheckCompleted here too
-    // router.push should have already initiated, this is a fallback display state
+  if (!currentUser && authCheckCompleted) {
     return <FullPageLoader message="Redirigiendo a inicio de sesión..." />;
   }
-  // currentUser exists at this point, and auth check is done.
-  // Now check if read status is still loading for the authenticated user.
   if (isLoadingReadStatus) { 
     return <FullPageLoader message="Cargando datos..." />;
   }
@@ -231,7 +229,7 @@ export default function Home() {
                     <button 
                       onClick={() => handleMarkAsRead(chapter)} 
                       className={`mr-3 w-6 h-6 border-2 rounded flex items-center justify-center focus:outline-none transition-colors ${isRead ? 'bg-[#8B4513]/70 border-[#654321]' : 'bg-transparent border-gray-400 hover:border-gray-500'}`}
-                      aria-label={isRead ? `Desmarcar ${chapter.section} ${chapter.chapter}` : `Marcar ${chapter.section} ${chapter.chapter} como leído`}
+                      aria-label={isRead ? `Marcar ${chapter.section} ${chapter.chapter} como leído nuevamente` : `Marcar ${chapter.section} ${chapter.chapter} como leído`}
                     >
                       {isRead && <span className="text-white text-sm">✓</span>}
                     </button>
