@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Bible Study Cloud",
   description: "Bible Study Cloud Application",
+  icons: {
+    icon: '/book-icon.svg', // Path to your new icon in the public directory
+  },
 };
 
 export default function RootLayout({
