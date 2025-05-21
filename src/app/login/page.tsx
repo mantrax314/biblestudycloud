@@ -22,22 +22,24 @@ export default function LoginPage() {
           case 'auth/invalid-email':
             setError('Formato de correo inválido');
             break;
-          case 'auth/invalid-credential': // This code is often used for wrong password or email not found
-            setError('Credenciales incorrectas');
+          case 'auth/invalid-credential': // General credential error
+            setError('Credenciales incorrectas. Por favor, verifica tu correo y contraseña.');
             break;
-          // It's good practice to handle other Firebase auth errors you anticipate
           case 'auth/user-not-found':
-            setError('Usuario no encontrado.');
+            setError('Usuario no encontrado. Verifica el correo electrónico.');
             break;
           case 'auth/wrong-password':
-            setError('Contraseña incorrecta.');
+            setError('Contraseña incorrecta. Por favor, inténtalo de nuevo.');
             break;
           default:
+            console.error('Firebase Authentication Error:', err); // Log the actual error for debugging
             setError('Ocurrió un error de autenticación. Por favor, inténtalo de nuevo.');
         }
       } else if (err instanceof Error) {
+        console.error('Generic Error:', err); // Log the actual error for debugging
         setError(err.message); // For generic errors
       } else {
+        console.error('Unknown Error:', err); // Log the actual error for debugging
         setError('Ocurrió un error inesperado. Por favor, inténtalo de nuevo.');
       }
     }
