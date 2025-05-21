@@ -65,7 +65,7 @@ export default function Home() {
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
   const [readStatus, setReadStatus] = useState<Record<string, { latestReadTimestamp: string; firestoreDocId: string }>>({});
   const [isLoadingReadStatus, setIsLoadingReadStatus] = useState(true);
-  const [authCheckCompleted, setAuthCheckCompleted] = useState(false); // New state
+  const [authCheckCompleted, setAuthCheckCompleted] = useState(false);
 
   const loadReadChapters = async (userId: string) => {
     setIsLoadingReadStatus(true);
@@ -85,6 +85,7 @@ export default function Home() {
       setReadStatus(newReadStatus);
     } catch (error) {
       console.error("Error loading read chapters: ", error);
+      // Optionally set an error state here to inform the user
     }
     setIsLoadingReadStatus(false);
   };
@@ -93,13 +94,14 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setCurrentUser(user);
-        loadReadChapters(user.uid);
+        loadReadChapters(user.uid); // loadReadChapters sets setIsLoadingReadStatus(false) internally
       } else {
         setCurrentUser(null);
         setReadStatus({});
+        setIsLoadingReadStatus(true); // Reset loading state for read chapters on logout
         router.push('/login');
       }
-      setAuthCheckCompleted(true); // Mark auth check as completed
+      setAuthCheckCompleted(true); // Crucially, set this after user state is confirmed and actions initiated
     });
     return () => unsubscribe();
   }, [router]);
@@ -189,14 +191,16 @@ export default function Home() {
   const buttonStyle = "bg-[#d3b596] hover:bg-[#c4a585] text-[#5a4132] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline text-sm md:text-base";
   const inputStyle = "appearance-none border-b-2 border-[#d3b596] w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none bg-transparent placeholder-gray-600 text-lg";
 
-  // Loading states
   if (!authCheckCompleted) {
     return <FullPageLoader message="Verificando sesión..." />;
   }
-  if (!currentUser) { // Should be handled by redirect, but as a safeguard
+  if (!currentUser && authCheckCompleted) { // Explicitly check authCheckCompleted here too
+    // router.push should have already initiated, this is a fallback display state
     return <FullPageLoader message="Redirigiendo a inicio de sesión..." />;
   }
-  if (isLoadingReadStatus) { // Auth check done, user exists, but chapter data is loading
+  // currentUser exists at this point, and auth check is done.
+  // Now check if read status is still loading for the authenticated user.
+  if (isLoadingReadStatus) { 
     return <FullPageLoader message="Cargando datos..." />;
   }
 
