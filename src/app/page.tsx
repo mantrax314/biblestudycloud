@@ -174,27 +174,36 @@ export default function Home() {
     const docRef = doc(db, "users", userId, "readChapters", chapterId);
     try {
       const docSnap = await getDoc(docRef);
+      let updatedDetailedData;
       if (docSnap.exists()) {
         const existingData = docSnap.data() as ReadChapterData;
         const updatedTimestamps = [nowISO, ...(existingData.allTimestamps || [])];
         await updateDoc(docRef, { latestReadTimestamp: nowISO, allTimestamps: updatedTimestamps });
+        updatedDetailedData = { ...existingData, latestReadTimestamp: nowISO, allTimestamps: updatedTimestamps };
       } else {
         const newReadEntry: ReadChapterData = { id: chapter.id, section: chapter.section, chapter: chapter.chapter, latestReadTimestamp: nowISO, allTimestamps: [nowISO], notes: "" };
         await setDoc(docRef, newReadEntry);
+        updatedDetailedData = newReadEntry;
       }
       setReadStatus(prev => ({ ...prev, [chapterId]: { latestReadTimestamp: nowISO, firestoreDocId: chapterId } }));
-      // If detail modal is open for this chapter, refresh its data
       if(isChapterDetailModalOpen && selectedChapterForModal?.id === chapterId) {
-        const updatedDoc = await getDoc(docRef);
-        if(updatedDoc.exists()) {
-            setDetailedChapterData(updatedDoc.data() as ReadChapterData);
-        }
+        setDetailedChapterData(updatedDetailedData);
+        // If notes were open for this chapter, currentNotes might be stale if we just marked it as read for the first time
+        setCurrentNotes(updatedDetailedData.notes || ''); 
       }
     } catch (error) { console.error("Error updating read status: ", error); alert("Error al guardar."); }
   };
 
   const handleChapterItemClick = async (chapter: Chapter) => {
     if (!currentUser) return;
+    // Only open modal if chapter is already marked as read
+    if (!readStatus[chapter.id]) {
+        // Optionally, provide feedback that chapter must be read first, or simply do nothing
+        // For now, let's mark it as read if clicked and not read, then open modal
+        await handleMarkAsRead(chapter); // Mark as read first
+        // After marking as read, the detailed data will be fresh or created
+    }
+    
     setSelectedChapterForModal(chapter);
     setIsChapterDetailModalOpen(true);
     setIsLoadingChapterDetails(true);
@@ -203,9 +212,12 @@ export default function Home() {
     try {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setDetailedChapterData(docSnap.data() as ReadChapterData);
-        setCurrentNotes(docSnap.data().notes || '');
+        const data = docSnap.data() as ReadChapterData;
+        setDetailedChapterData(data);
+        setCurrentNotes(data.notes || '');
       } else {
+        // This case should ideally not be hit if we ensure it's read first via handleMarkAsRead above
+        // Or if modal is only opened for chapters in readStatus
         setDetailedChapterData({ ...chapter, latestReadTimestamp: '', allTimestamps: [], notes: '' });
         setCurrentNotes('');
       }
@@ -228,25 +240,15 @@ export default function Home() {
 
     try {
         const docSnap = await getDoc(docRef);
-        const nowISO = new Date().toISOString();
-
+        
         if (docSnap.exists()) {
-            // Document exists, update notes and potentially latestReadTimestamp if notes are saved
-            const existingData = docSnap.data() as ReadChapterData;
-            const updatedTimestamps = detailedChapterData?.latestReadTimestamp === existingData.latestReadTimestamp 
-                                      ? [nowISO, ...(existingData.allTimestamps || [])] 
-                                      : existingData.allTimestamps; // If already re-read, don't add again just for notes
-            const newLatestTimestamp = detailedChapterData?.latestReadTimestamp === existingData.latestReadTimestamp ? nowISO : existingData.latestReadTimestamp;
-
-            await updateDoc(docRef, {
-                notes: currentNotes,
-                latestReadTimestamp: newLatestTimestamp, // Update if it's a new read action along with notes
-                allTimestamps: updatedTimestamps      // Add new timestamp if it was a new read action
-            });
-            setDetailedChapterData(prev => prev ? { ...prev, notes: currentNotes, latestReadTimestamp: newLatestTimestamp, allTimestamps: updatedTimestamps } : null);
-            setReadStatus(prev => ({ ...prev, [chapterId]: { latestReadTimestamp: newLatestTimestamp, firestoreDocId: chapterId } }));
+            // Document exists, only update notes
+            await updateDoc(docRef, { notes: currentNotes });
+            setDetailedChapterData(prev => prev ? { ...prev, notes: currentNotes } : null);
         } else {
-            // Document doesn't exist, create it (this means it's the first time reading/noting this chapter)
+            // Document doesn't exist: This implies saving notes for a chapter not yet marked as read.
+            // Create it with current notes and mark as read.
+            const nowISO = new Date().toISOString();
             const newReadEntry: ReadChapterData = {
                 id: selectedChapterForModal.id,
                 section: selectedChapterForModal.section,
@@ -256,7 +258,7 @@ export default function Home() {
                 notes: currentNotes
             };
             await setDoc(docRef, newReadEntry);
-            setDetailedChapterData(newReadEntry);
+            setDetailedChapterData(newReadEntry); // Update local detailed data
             setReadStatus(prev => ({ ...prev, [chapterId]: { latestReadTimestamp: nowISO, firestoreDocId: chapterId } }));
         }
         alert("Notas guardadas!");
@@ -281,8 +283,8 @@ export default function Home() {
         delete newState[selectedChapterForModal.id];
         return newState;
       });
-      setDetailedChapterData(null); // Clear detailed data as it's now unread
-      setIsChapterDetailModalOpen(false); // Close modal after marking unread
+      setDetailedChapterData(null);
+      setIsChapterDetailModalOpen(false);
       alert("Capítulo marcado como no leído.");
     } catch (error) { console.error("Error marking as unread: ", error); alert("Error al marcar como no leído."); }
     setShowUnreadConfirm(false);
@@ -327,7 +329,8 @@ export default function Home() {
               const timestamp = readStatus[chapter.id]?.latestReadTimestamp;
               return (
                 <li key={chapter.id} className="flex items-center justify-between py-2 px-2 md:px-3 border-b border-gray-300/50">
-                  <div onClick={() => handleChapterItemClick(chapter)} className="flex items-center flex-grow min-w-0 cursor-pointer hover:bg-black/10 rounded px-1 py-0.5">
+                  <div onClick={() => { if (readStatus[chapter.id]) { handleChapterItemClick(chapter); }}} 
+                       className={`flex items-center flex-grow min-w-0 rounded px-1 py-0.5 ${readStatus[chapter.id] ? 'cursor-pointer hover:bg-black/10' : 'cursor-default' }`}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleMarkAsRead(chapter);}} 
                       className={`mr-2 md:mr-3 w-5 h-5 md:w-6 md:h-6 border-2 rounded flex-shrink-0 flex items-center justify-center focus:outline-none transition-colors ${isRead ? 'bg-[#8B4513]/70 border-[#654321]' : 'bg-transparent border-gray-400 hover:border-gray-500'}`}
@@ -396,7 +399,7 @@ export default function Home() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-500 italic">Aún no has leído este capítulo.</p>
+                    <p className="text-xs text-gray-500 italic">Este capítulo no ha sido marcado como leído.</p> // Changed message
                   )}
                 </div>
                 
@@ -416,7 +419,8 @@ export default function Home() {
             {/* Action Buttons for Detail Modal */}
             {!isLoadingChapterDetails && (
               <div className="flex flex-col space-y-2 pt-2 border-t border-gray-300/70">
-                <button onClick={handleSaveNotes} className={`${modalButtonStyle} ${!detailedChapterData ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={!detailedChapterData}>
+                <button onClick={handleSaveNotes} className={`${modalButtonStyle} ${!selectedChapterForModal ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                        disabled={!selectedChapterForModal}>
                   Guardar Notas
                 </button>
                 {detailedChapterData && detailedChapterData.allTimestamps && detailedChapterData.allTimestamps.length > 0 && !showUnreadConfirm && (
