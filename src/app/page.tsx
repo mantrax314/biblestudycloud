@@ -68,6 +68,7 @@ export default function Home() {
                 chapter={chapter}
                 isRead={!!readStatus[chapter.id]}
                 timestamp={readStatus[chapter.id]?.latestReadTimestamp}
+                notesPreview={readStatus[chapter.id]?.notes}
                 onMarkAsRead={handleMarkAsRead}
                 onChapterClick={handleChapterClick}
               />

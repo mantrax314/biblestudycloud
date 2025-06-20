@@ -1,6 +1,5 @@
 import { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { User } from 'firebase/auth';
-// FIX: Removed unused 'setDoc' and added 'deleteDoc' which is used here.
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase';
 import { Chapter, ReadChapterData, ReadStatus } from '@/lib/types';
@@ -11,7 +10,6 @@ interface ChapterDetailModalProps {
   onClose: () => void;
   chapter: Chapter | null;
   currentUser: User | null;
-  // FIX: Replaced 'any' with a specific and correct TypeScript type for a state setter function.
   onUpdateReadStatus: Dispatch<SetStateAction<ReadStatus>>; 
 }
 
@@ -40,6 +38,13 @@ export function ChapterDetailModal({ isOpen, onClose, chapter, currentUser, onUp
     if (!currentUser || !chapter) return;
     const docRef = doc(db, "users", currentUser.uid, "readChapters", chapter.id);
     await updateDoc(docRef, { notes });
+    onUpdateReadStatus(prev => ({
+        ...prev,
+        [chapter.id]: {
+            ...prev[chapter.id],
+            notes: notes
+        }
+    }));
     alert("Notas guardadas!");
   };
 
@@ -47,7 +52,6 @@ export function ChapterDetailModal({ isOpen, onClose, chapter, currentUser, onUp
     if (!currentUser || !chapter) return;
     const docRef = doc(db, "users", currentUser.uid, "readChapters", chapter.id);
     await deleteDoc(docRef);
-    // FIX: Explicitly typed the 'prev' parameter to avoid the implicit 'any' error.
     onUpdateReadStatus((prev: ReadStatus) => {
         const newState = {...prev};
         if (chapter?.id) {

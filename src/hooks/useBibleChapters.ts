@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
-// FIX: Removed unused 'deleteDoc' import
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query } from 'firebase/firestore'; 
 import { Chapter, ReadChapterData, ReadStatus } from '@/lib/types';
 import { normalizeText } from '@/lib/utils';
@@ -36,7 +35,8 @@ export function useBibleChapters(currentUser: User | null) {
         if (data.id) {
           newReadStatus[data.id] = {
             latestReadTimestamp: data.latestReadTimestamp,
-            firestoreDocId: docSnap.id
+            firestoreDocId: docSnap.id,
+            notes: data.notes || ''
           };
         }
       });
@@ -80,11 +80,12 @@ export function useBibleChapters(currentUser: User | null) {
         const data = docSnap.data() as ReadChapterData;
         const updatedTimestamps = [nowISO, ...(data.allTimestamps || [])];
         await updateDoc(docRef, { latestReadTimestamp: nowISO, allTimestamps: updatedTimestamps });
+        setReadStatus(prev => ({ ...prev, [id]: { ...prev[id], latestReadTimestamp: nowISO } }));
       } else {
         const newEntry: ReadChapterData = { id, section, chapter: chapterNum, latestReadTimestamp: nowISO, allTimestamps: [nowISO], notes: "" };
         await setDoc(docRef, newEntry);
+        setReadStatus(prev => ({ ...prev, [id]: { latestReadTimestamp: nowISO, firestoreDocId: id, notes: "" } }));
       }
-      setReadStatus(prev => ({ ...prev, [id]: { latestReadTimestamp: nowISO, firestoreDocId: id } }));
     } catch (error) {
       console.error("Error updating read status: ", error);
     }

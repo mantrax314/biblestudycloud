@@ -14,5 +14,6 @@ export interface Chapter {
     [key: string]: {
       latestReadTimestamp: string;
       firestoreDocId: string;
+      notes?: string;
     };
   }
